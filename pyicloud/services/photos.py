@@ -141,6 +141,7 @@ class PhotosService(object):
              % self._service_root)
 
         self._albums = None
+        self._libraries = None
 
         self.params.update({
             'remapEnums': True,
@@ -225,11 +226,42 @@ class PhotosService(object):
     def all(self):
         return self.albums['All Photos']
 
+    @property
+    def libraries(self):
+        if not self._libraries:
+            url = ('%s/changes/database' %
+                (self._service_endpoint, ))
+
+            request = self.session.post(
+                url,
+                data='{}',
+                headers={'Content-type': 'text/plain'}
+            )
+            print(request)
+            print(repr(request.content))
+            response = request.json()
+            print(repr(response))
+            zones = response['zones']
+
+            libraries = {}
+            for zone in zones:
+                if not zone.get('deleted'):
+                    zone_name = zone['zoneID']['zoneName']
+                    libraries[zone_name] = PhotoAlbum(
+                        self, zone_name, obj_type='CPLAssetByAssetDateWithoutHiddenOrDeleted',
+                        list_type="CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted",
+                        direction="ASCENDING", query_filter=None,
+                        zone_id=zone['zoneID'])
+
+            self._libraries = libraries
+
+        return self._libraries
+
 
 class PhotoAlbum(object):
 
     def __init__(self, service, name, list_type, obj_type, direction,
-                 query_filter=None, page_size=100):
+                 query_filter=None, page_size=100, zone_id=None):
         self.name = name
         self.service = service
         self.list_type = list_type
@@ -239,6 +271,11 @@ class PhotoAlbum(object):
         self.page_size = page_size
 
         self._len = None
+
+        if zone_id:
+            self._zone_id = zone_id
+        else:
+            self._zone_id = {u'zoneName': u'PrimarySync'}
 
     @property
     def title(self):
@@ -325,9 +362,7 @@ class PhotoAlbum(object):
                     u'recordType': u'HyperionIndexCountLookup'
                 },
                 u'zoneWide': True,
-                u'zoneID': {
-                    u'zoneName': u'PrimarySync'
-                }
+                u'zoneID': self._zone_id
             }]
         }
 
@@ -388,7 +423,7 @@ class PhotoAlbum(object):
                 u'vidComplVisibilityState', u'customRenderedValue',
                 u'containerId', u'itemId', u'position', u'isKeyAsset'
             ],
-            u'zoneID': {u'zoneName': u'PrimarySync'}
+            u'zoneID': self._zone_id
         }
 
         if query_filter:
