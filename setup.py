@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
 
 
 setup(
-    name='pyicloud',
+    name='pyicloud-ipd',
     version='0.9.1',
     url='https://github.com/picklepete/pyicloud',
     description=(
